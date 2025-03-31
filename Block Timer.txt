@@ -1,0 +1,115 @@
+// ==UserScript==
+// @name         Chặn đếm thời gian LMS 360
+// @namespace    http://tampermonkey.net/
+// @version      3.0
+// @description  Chặn bộ đếm thời gian (Bật/Tắt)
+// @author       V Quan
+// @match        *://lms360.edu.vn/*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    let isEnabled = localStorage.getItem("vip_pro_max_status") === "true"; // Lưu trạng thái bật/tắt
+
+    function blockTimers() {
+        if (!isEnabled) return;
+
+        console.log("[UserScript] Đã chặn bộ đếm thời gian!");
+
+        // Ghi đè setInterval và setTimeout
+        window.setInterval = function() {
+            console.log("[UserScript] Chặn setInterval");
+            return 0;
+        };
+        window.setTimeout = function() {
+            console.log("[UserScript] Chặn setTimeout");
+            return 0;
+        };
+
+        // Dừng tất cả timer đang chạy
+        for (let i = 1; i < 99999; i++) {
+            clearInterval(i);
+            clearTimeout(i);
+        }
+
+        // Ngăn chặn visibilitychange (chuyển tab không ảnh hưởng)
+        document.addEventListener("visibilitychange", function(event) {
+            event.stopImmediatePropagation();
+            console.log("[UserScript] Chặn visibilitychange");
+        }, true);
+
+        // Ngăn chặn cảnh báo rời trang
+        window.onbeforeunload = null;
+        window.onunload = null;
+
+        // Chặn event beforeunload
+        window.addEventListener("beforeunload", function(event) {
+            event.stopImmediatePropagation();
+            console.log("[UserScript] Chặn beforeunload");
+        }, true);
+
+        // Ghi đè performance.now() để luôn trả về 0
+        performance.now = function() {
+            console.log("[UserScript] Chặn performance.now()");
+            return 0;
+        };
+    }
+
+    if (isEnabled) blockTimers(); // Chặn ngay nếu đang bật
+
+    // Tạo UI hiển thị
+    let div = document.createElement("div");
+    div.innerHTML = `
+        <div id="script-ui" style="
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 250px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            font-size: 14px;
+            border-radius: 8px;
+            z-index: 9999;
+            box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.2);
+            font-family: Arial, sans-serif;
+        ">
+            <b>🚀 VIP PRO MAX</b> <br>
+            ✅ Trạng thái: <span id="status">${isEnabled ? "Đang bật" : "Đã tắt"}</span> <br>
+            <button id="toggle-script" style="
+                margin-top: 10px;
+                width: 100%;
+                background: ${isEnabled ? "red" : "green"};
+                color: white;
+                border: none;
+                padding: 8px;
+                cursor: pointer;
+                border-radius: 5px;
+            ">${isEnabled ? "Tắt Script" : "Bật Script"}</button>
+        </div>
+    `;
+    document.body.appendChild(div);
+
+    // Ẩn UI sau 10 giây (có thể mở lại)
+    setTimeout(() => {
+        div.style.opacity = "0.5"; // Làm mờ thay vì ẩn hoàn toàn
+    }, 10000);
+
+    // Xử lý bật/tắt script real-time
+    document.getElementById("toggle-script").addEventListener("click", function() {
+        isEnabled = !isEnabled;
+        localStorage.setItem("vip_pro_max_status", isEnabled); // Lưu trạng thái vào localStorage
+        document.getElementById("status").innerText = isEnabled ? "Đang bật" : "Đã tắt";
+        this.innerText = isEnabled ? "Tắt Script" : "Bật Script";
+        this.style.background = isEnabled ? "red" : "green";
+
+        if (isEnabled) {
+            blockTimers();
+        } else {
+            location.reload(); // Reload trang nếu tắt script
+        }
+    });
+
+})();
